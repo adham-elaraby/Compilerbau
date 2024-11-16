@@ -247,15 +247,46 @@ public final class Parser {
 				throw new SyntaxError(currentToken, VAL, VAR, RETURN, ID, FOR, FOREACH, IF, SWITCH, LBRACE);
 		}
 	}
-	
+
+	/**
+	 * Task 1.1: Parses a value definition in the form `val` type ID '=' expr ';'.
+	 * Example: `val int x = 42;`
+	 * @return A `ValueDefinition` object representing the parsed value definition.
+	 *
+	 * @author adham-elaraby
+	 */
 	private ValueDefinition parseValueDef() {
-		// TODO implement method (task 1.1)
-		throw new UnsupportedOperationException();
+		SourceLocation location = currentToken.sourceLocation;
+
+		accept(VAL);
+		TypeSpecifier<?> typeSpecifier = parseTypeSpecifier();
+		String name = accept(ID);
+		accept(ASSIGN);
+		// Parse the expression that provides the value for the definition (i.e. after '=')
+		Expression expression = parseExpr();
+		accept(SEMICOLON);
+
+		return new ValueDefinition(location,typeSpecifier, name, expression);
 	}
-	
+
+	/**
+	 * Task 1.1: Parses a variable declaration in the form `var` type ID ';'.
+	 * Example: `var int x;`
+	 *
+	 * @return A `VariableDeclaration` object representing the parsed variable declaration.
+	 *
+	 * @author adham-elaraby
+	 */
 	private VariableDeclaration parseVarDecl() {
-		// TODO implement method (task 1.1)
-		throw new UnsupportedOperationException();
+		SourceLocation location = currentToken.sourceLocation;
+
+		accept(VAR);
+		// Parse the type specifier (e.g., `int`, `float`, or any other supported type).
+		TypeSpecifier<?> typeSpecifier = parseTypeSpecifier();
+		String name = accept(ID);
+		accept(SEMICOLON);
+
+		return new VariableDeclaration(location, typeSpecifier, name);
 	}
 	
 	private ReturnStatement parseReturn() {
@@ -282,10 +313,63 @@ public final class Parser {
 
 		return s;
 	}
-	
+
+	/**
+	 * Task 1.1: Parses the right-hand side (RHS) of an assignment to a variable.
+	 * Grammar rule:
+	 * ID ('[' expr ']' ('[' expr ']')? | '@' ID)? '=' expr ';'
+	 * This handles assignments to variables, vectors, matrices, and record fields.
+	 *
+	 * @param name The name of the variable being assigned.
+	 * @param location The source location of the assignment in the code for error reporting.
+	 * @return A `VariableAssignment` object representing the parsed assignment.
+	 *
+	 * @author adham-elaraby
+	 */
 	private VariableAssignment parseAssign(String name, SourceLocation location) {
-		// TODO implement method (task 1.1)
-		throw new UnsupportedOperationException();
+		LeftHandIdentifier lhs;
+
+		// Determine the structure
+		switch (currentToken.type) {
+			// Case for indexed access, e.g., vector[0] or matrix[0][0].
+			case LBRACKET:
+				// vector[0] = 0
+				// we consume the '[' token, parse the index expression inside the brackets.
+				acceptIt();
+				Expression x = parseExpr();
+				accept(RBRACKET); // Ensure the closing ']' is present.
+
+				if (currentToken.type == LBRACKET) {
+					// Case for matrix access, e.g.,
+					// matrix[0][0] = 0
+					acceptIt();
+
+					lhs = new MatrixLhsIdentifier(location, name, x, parseSelect());
+					accept(RBRACKET);
+				} else {
+					// Case for vector access...
+					lhs = new VectorLhsIdentifier(location, name, x);
+				}
+				break;
+
+			// Case for record field access, e.g., struct@num = 0
+			case AT:
+				acceptIt();
+				lhs = new RecordLhsIdentifier(location, name, accept(ID));
+				break;
+
+			// Default case for simple variable assignment, e.g., variable = value
+			default:
+				// variable = 0
+				lhs = new LeftHandIdentifier(location, name);
+				break;
+		}
+
+		accept(ASSIGN);
+		Expression expr = parseExpr(); // Parse the RHS expression.
+
+
+		return new VariableAssignment(location, lhs, expr);
 	}
 	
 	private CallExpression parseCall(String name, SourceLocation location) {
