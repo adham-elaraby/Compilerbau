@@ -531,7 +531,6 @@ public final class Parser {
 	 * @author adham-elaraby
 	 */
 	private Expression parseNot() {
-		// TODO extend method (task 1.2)
 
 		SourceLocation location = currentToken.sourceLocation;
 
