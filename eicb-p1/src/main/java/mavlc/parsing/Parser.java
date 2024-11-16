@@ -523,49 +523,174 @@ public final class Parser {
 		}
 		return x;
 	}
-	
+
+	/**
+	 * Task 1.2
+	 * Grammar: ’!’ ? compare
+	 *
+	 * @author adham-elaraby
+	 */
 	private Expression parseNot() {
 		// TODO extend method (task 1.2)
-		
+
+		SourceLocation location = currentToken.sourceLocation;
+
+		// create a negation if there is a NOT operator
+		if (currentToken.type == NOT) {
+			acceptIt();
+			return new Not(location, parseCompare());
+		}
+
 		return parseCompare();
 	}
-	
+
+	/**
+	 * Helper method to check if the current token is a comparison operator, used by parseCompare()
+	 * @param type
+	 * @return
+	 */
+	private boolean isComparisonOperator(Token.TokenType type) {
+		return type == Token.TokenType.RANGLE ||
+				type == Token.TokenType.LANGLE ||
+				type == Token.TokenType.CMPLE ||
+				type == Token.TokenType.CMPGE ||
+				type == Token.TokenType.CMPEQ ||
+				type == Token.TokenType.CMPNE;
+	}
+
+	/**
+	 * Task 1.2
+	 * Grammar rule:
+	 * addSub ( ( ’>’ | ’<’ | ’<=’ | ’>=’ | ’==’ | ’!=’ ) addSub )*
+	 *
+	 * @author adham-elaraby
+	 */
 	private Expression parseCompare() {
 		SourceLocation location = currentToken.sourceLocation;
 		
 		Expression x = parseAddSub();
 
-		// TODO extend method (task 1.2)
+		// TODO: implement private tests fot this @adham-elaraby
+
+		while (isComparisonOperator(currentToken.type)) {
+			// Determine the type of comparison
+			Compare.Comparison type = switch (currentToken.type) {
+                case RANGLE -> Compare.Comparison.GREATER;
+                case LANGLE -> Compare.Comparison.LESS;
+                case CMPLE -> Compare.Comparison.LESS_EQUAL;
+                case CMPGE -> Compare.Comparison.GREATER_EQUAL;
+                case CMPEQ -> Compare.Comparison.EQUAL;
+                case CMPNE -> Compare.Comparison.NOT_EQUAL;
+                default -> throw new IllegalStateException("Unexpected token type: " + currentToken.type);
+            };
+
+            // Consume the comparison operator token and parse the next operand
+			acceptIt();
+			x = new Compare(location, x, parseAddSub(), type);
+		}
+
+
 		return x;
 	}
-	
+
+	/**
+	 * Task 1.2
+	 * Grammar rule:
+	 * mulDiv ( ( ’+’ | ’-’ ) mulDiv )*
+	 *
+	 * @author adham-elaraby
+	 */
 	private Expression parseAddSub() {
 		SourceLocation location = currentToken.sourceLocation;
 
 		Expression x = parseMulDiv();
-		// TODO extend method (task 1.2)
+
+		while (currentToken.type == ADD || currentToken.type == SUB) {
+			if (currentToken.type == ADD) {
+				acceptIt();
+				x = new Addition(location, x, parseMulDiv());
+			} else if (currentToken.type == SUB) {
+				acceptIt();
+				x = new Subtraction(location, x, parseMulDiv());
+			}
+		}
+
 		return x;
 	}
-	
+
+	/**
+	 * Task 1.2
+	 * Grammar rule:
+	 * unaryMinus ( ( ’*’ | ’/’ ) unaryMinus )*
+	 *
+	 * @author adham-elaraby
+	 */
 	private Expression parseMulDiv() {
 		SourceLocation location = currentToken.sourceLocation;
 
 		Expression x = parseUnaryMinus();
-		// TODO extend method (task 1.2)
+
+		// TODO: implement private tests fot this @adham-elaraby
+
+		while (currentToken.type == Token.TokenType.MULT || currentToken.type == Token.TokenType.DIV) {
+			switch (currentToken.type) {
+				case MULT:
+					acceptIt();
+					x = new Multiplication(location, x, parseUnaryMinus());
+					break;
+				case DIV:
+					acceptIt();
+					x = new Division(location, x, parseUnaryMinus());
+					break;
+				default:
+					// This should never actually be reached because we checked in the while statement, but nevertheless we will keep it here.
+					throw new IllegalStateException("Unexpected token type: " + currentToken.type);
+			}
+		}
+
 		return x;
 	}
-	
+
+	/**
+	 * Task 1.2
+	 * Grammar rule:
+	 * ’-’ ? exponentation
+	 *
+	 * @author adham-elaraby
+	 */
 	private Expression parseUnaryMinus() {
-		// TODO extend method (task 1.2)
-		return parseExponentiation();
+		// TODO: implement private tests fot this @adham-elaraby
+		SourceLocation location = currentToken.sourceLocation;
+
+		if (currentToken.type != SUB) {
+			return parseExponentiation();
+		}
+
+		acceptIt();
+		return new UnaryMinus(location, parseExponentiation());
+//		return parseExponentiation();
 	}
-	
+
+	/**
+	 * Task 1.2
+	 * Grammar rule:
+	 * dotProd ( ’^’ dotProd )*
+	 *
+	 * @author adham-elaraby
+	 */
 	private Expression parseExponentiation() {
 		SourceLocation location = currentToken.sourceLocation;
 
 		Expression left = parseDotProd();
-		// TODO extend method (task 1.2)
-		return left;
+
+		if (currentToken.type != EXP) {
+			return left;
+		}
+		else {
+			acceptIt();
+			return new Exponentiation(location, left, parseExponentiation());
+		}
+//		return left;
 	}
 	
 	private Expression parseDotProd() {
@@ -589,9 +714,27 @@ public final class Parser {
 		}
 		return x;
 	}
-	
+
+	/**
+	 * Task 1.2
+	 * Grammar rule:
+	 * ’~’ ? dim
+	 *
+	 * @author adham-elaraby
+	 */
 	private Expression parseTranspose() {
-		// TODO extend method (task 1.2)
+		// TODO: implement private tests fot this @adham-elaraby
+		SourceLocation location = currentToken.sourceLocation;
+
+		// Check if the current token is the transpose operator '~'.
+		if (currentToken.type == TRANSPOSE) {
+			acceptIt();
+			// parse the following dim expression and wrap it in a matrix transpose node.
+			return new MatrixTranspose(location, parseDim());
+		}
+
+		// if there ends up being no '~', we directly parse and return next dim expression.
+
 		return parseDim();
 	}
 	
