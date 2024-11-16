@@ -406,10 +406,35 @@ public final class Parser {
 		accept(RPAREN);
 		return new ForEachLoop(location, param, struct, parseStatement());
 	}
-	
+
+	/**
+	 * Task 1.3: if-statements
+	 * Grammar rule:
+	 * ’if’ ’(’ expr ’)’ statement ( ’else’ statement )?
+	 *
+	 * @return An `IfStatement` object.
+	 *
+	 * @author adham-elaraby
+	 */
 	private IfStatement parseIf() {
-		// TODO implement method (task 1.3)
-		throw new UnsupportedOperationException();
+		SourceLocation location = currentToken.sourceLocation;
+
+		accept(IF);
+		accept(LPAREN);
+		Expression condition = parseExpr();
+		accept(RPAREN);
+		Statement thenStatement = parseStatement();
+
+		// if there is no else statement, we're done here.
+		if (currentToken.type != ELSE) {
+			return new IfStatement(location, condition, thenStatement, null);
+		}
+		else {
+			// parse else statement
+			acceptIt();
+			Statement elseStatement = parseStatement();
+			return new IfStatement(location, condition, thenStatement, elseStatement);
+		}
 	}
 	
 	private SwitchStatement parseSwitch() {
