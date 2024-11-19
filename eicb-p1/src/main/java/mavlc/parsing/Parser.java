@@ -493,12 +493,34 @@ public final class Parser {
 	private Expression parseExpr() {
 		return parseSelect();
 	}
-	
+
+	/**
+	 * Task 1.5: select (ternary operator)
+	 * Grammar rule:
+	 * or (’?’ or ’:’ or)?
+	 *
+	 * @author adham-elaraby
+	 */
 	private Expression parseSelect() {
 		SourceLocation location = currentToken.sourceLocation;
 		
 		Expression cond = parseOr();
-		// TODO extend method (task 1.5)
+
+		// from Token.TokenType: ternary op is defined as: QMARK("?"),
+
+		if (currentToken.type == QMARK) {
+			// SelectExpression takes in the following parameters:
+			// sourceLocation, condition, trueCase, falseCase
+			// from mavlc.syntax.expression.SelectExpression
+
+			acceptIt();
+			Expression trueCase = parseOr();
+			accept(COLON);
+			Expression falseCase = parseOr();
+
+			return new SelectExpression(location, cond, trueCase, falseCase);
+		}
+
 		return cond;
 	}
 	
@@ -545,8 +567,10 @@ public final class Parser {
 
 	/**
 	 * Helper method to check if the current token is a comparison operator, used by parseCompare()
-	 * @param type
-	 * @return
+	 * @param type The type of the token to check and see if it is a comparison operator.
+	 * @return True if the token is a comparison operator, false otherwise.
+	 *
+	 * @author adham-elaraby
 	 */
 	private boolean isComparisonOperator(Token.TokenType type) {
 		return type == Token.TokenType.RANGLE ||
@@ -566,11 +590,13 @@ public final class Parser {
 	 */
 	private Expression parseCompare() {
 		SourceLocation location = currentToken.sourceLocation;
-		
+
+		// again we parse the left op of the comp. op which can be an addSub expression.
 		Expression x = parseAddSub();
 
 		// TODO: implement private tests fot this @adham-elaraby
 
+		// and then we parse all the comparison operators we can find, and create a new node for each operation.
 		while (isComparisonOperator(currentToken.type)) {
 			// Determine the type of comparison
 			Compare.Comparison type = switch (currentToken.type) {
@@ -580,6 +606,7 @@ public final class Parser {
                 case CMPGE -> Compare.Comparison.GREATER_EQUAL;
                 case CMPEQ -> Compare.Comparison.EQUAL;
                 case CMPNE -> Compare.Comparison.NOT_EQUAL;
+				// I don't think this should ever be reached, but we'll keep it here just in case, and because some default is required.
                 default -> throw new IllegalStateException("Unexpected token type: " + currentToken.type);
             };
 
@@ -602,8 +629,11 @@ public final class Parser {
 	private Expression parseAddSub() {
 		SourceLocation location = currentToken.sourceLocation;
 
+		// we get the left operand of the addition or subtraction operator, which can be a multiplication or division expression.
 		Expression x = parseMulDiv();
 
+		// we parse all the addition and subtraction operators we can find, and create a new node for each operation.
+		// and set the left operand to the previous result.
 		while (currentToken.type == ADD || currentToken.type == SUB) {
 			if (currentToken.type == ADD) {
 				acceptIt();
@@ -631,6 +661,8 @@ public final class Parser {
 
 		// TODO: implement private tests fot this @adham-elaraby
 
+		// we parse as many times as we can, as long as the current token is a multiplication or division operator.
+		// we create a new node for each operation, and set the left operand to the previous result.
 		while (currentToken.type == Token.TokenType.MULT || currentToken.type == Token.TokenType.DIV) {
 			switch (currentToken.type) {
 				case MULT:
@@ -661,13 +693,14 @@ public final class Parser {
 		// TODO: implement private tests fot this @adham-elaraby
 		SourceLocation location = currentToken.sourceLocation;
 
+		// Check if the current token is the '-' operator, and if so, parse the next operand and create a UnaryMinus node.
 		if (currentToken.type != SUB) {
 			return parseExponentiation();
 		}
 
 		acceptIt();
 		return new UnaryMinus(location, parseExponentiation());
-//		return parseExponentiation();
+//		return parseExponentiation(); // this was the original return statement before implementing the unary minus operator.
 	}
 
 	/**
@@ -680,8 +713,10 @@ public final class Parser {
 	private Expression parseExponentiation() {
 		SourceLocation location = currentToken.sourceLocation;
 
+		// Parse the left operand of the exponentiation operator, which is a dot product, as per the grammar rule.
 		Expression left = parseDotProd();
 
+		// Check if the current token is the exponentiation operator '^', and if so, parse the right operand and create an Exponentiation node.
 		if (currentToken.type != EXP) {
 			return left;
 		}
@@ -689,7 +724,7 @@ public final class Parser {
 			acceptIt();
 			return new Exponentiation(location, left, parseExponentiation());
 		}
-//		return left;
+//		return left; // this was the original return statement before implementing the exponentiation operator.
 	}
 	
 	private Expression parseDotProd() {
@@ -722,7 +757,7 @@ public final class Parser {
 	 * @author adham-elaraby
 	 */
 	private Expression parseTranspose() {
-		// TODO: implement private tests fot this @adham-elaraby
+		// TODO: implement private tests for this @adham-elaraby
 		SourceLocation location = currentToken.sourceLocation;
 
 		// Check if the current token is the transpose operator '~'.
@@ -733,7 +768,6 @@ public final class Parser {
 		}
 
 		// if there ends up being no '~', we directly parse and return next dim expression.
-
 		return parseDim();
 	}
 	
@@ -809,7 +843,19 @@ public final class Parser {
 
 		return x;
 	}
-	
+
+	/**
+	 * Task 1.4:
+	 * Grammar rule:
+	 * INT | FLOAT | BOOL | STRING
+	 * | ID ( call )?
+	 * | ’(’ expr ’)’
+	 * | (’@’ ID)? initializerList
+	 *
+	 * an atom here refers to the most basic unit of an expression that cannot be broken down further. It includes literals (like integers, floats, booleans, and strings), identifiers, parenthesized expressions, and initializer lists.
+	 *
+	 * @author adham-elaraby, ...onlyvalli ??
+	 */
 	private Expression parseAtom() {
 		SourceLocation location = currentToken.sourceLocation;
 		
@@ -818,7 +864,9 @@ public final class Parser {
 				return new IntValue(location, parseIntLit());
 			case FLOATLIT:
 				return new FloatValue(location, parseFloatLit());
-			// TODO extend method (task 1.4)
+			case BOOLLIT:
+				// Task 1.4: parse a boolean literal and return a boolean value. @author adham-elaraby
+				return new BoolValue(location, parseBoolLit());
 			case STRINGLIT:
 				return new StringValue(location, accept(STRINGLIT));
 			default: /* check other cases below */
@@ -869,9 +917,20 @@ public final class Parser {
 	private float parseFloatLit() {
 		return Float.parseFloat(accept(FLOATLIT));
 	}
-	
+
+	/**
+	 * Task 1.4: takes a boolean literal and returns a boolean value
+	 *
+	 * @author adham-elaraby
+	 */
 	private boolean parseBoolLit() {
-		// TODO implement method (task 1.4)
-		throw new UnsupportedOperationException();
+		// we are using the parseBoolLit basically to convert the string to a bool, see the commented example below
+
+		// String boolString = "true";
+		// boolean boolValue = Boolean.parseBoolean(boolString);
+		// System.out.println(boolValue); // Output: true
+		// reference: https://www.geeksforgeeks.org/boolean-parseboolean-method-in-java-with-examples/
+
+		return Boolean.parseBoolean(accept(BOOLLIT));
 	}
 }
