@@ -129,15 +129,72 @@ public final class Parser {
 		
 		return new FormalParameter(location, name, typeSpecifier);
 	}
-	
+
+	/**
+	 * Task 1.7:
+	 * Grammar rule:
+	 * ’record’ ID ’{’ recordElemDecl+ ’}’
+	 *
+	 * @author adham-elaraby
+	 */
 	private RecordTypeDeclaration parseRecordTypeDeclaration() {
-		// TODO implement method (task 1.7)
-		throw new UnsupportedOperationException();
+		SourceLocation location = currentToken.sourceLocation;
+
+		accept(RECORD);
+		String name = accept(ID);
+		accept(LBRACE);
+
+		List<RecordElementDeclaration> recordElementDeclarations = new ArrayList<>();
+
+		// we do this here to ensure that at least one RecordElementDeclaration is parsed before entering the loop.
+		// This is necessary because the grammar rule for a record type declaration requires at least one recordElemDecl.
+		// just for safety, we could also check if the current token is a right brace, and throw an error if it is.
+		recordElementDeclarations.add(parseRecordElementDeclaration());
+		while(currentToken.type != RBRACE) {
+			recordElementDeclarations.add(parseRecordElementDeclaration());
+		}
+
+		accept(RBRACE);
+
+		return new RecordTypeDeclaration(location, name, recordElementDeclarations);
 	}
-	
+
+	/**
+	 * Task 1.7:
+	 * Grammar rule:
+	 * ( ’var’ | ’val’ ) type ID ’;’
+	 *
+	 * @author adham-elaraby
+	 */
+
 	private RecordElementDeclaration parseRecordElementDeclaration() {
-		// TODO implement method (task 1.7)
-		throw new UnsupportedOperationException();
+		// RecordElementDeclaration takes in the following parameters:
+		// sourceLocation, isVariable, typeSpecifier, name
+
+		SourceLocation location = currentToken.sourceLocation;
+
+		// RecordElementDeclaration can start with either 'var' or 'val'.
+		// We need to check which one it is, and then deal with it accordingly.
+
+		// enhanced switch statement recommended by IntelliJ IDEA.
+		boolean isVariable = switch (currentToken.type) {
+            case VAR -> {
+                acceptIt();
+                yield true;
+            }
+            case VAL -> {
+                acceptIt();
+                yield false;
+            }
+			// if it's neither 'var' nor 'val', there's something wrong with the syntax.
+            default -> throw new SyntaxError(currentToken, VAL, VAR);
+        };
+
+        TypeSpecifier<?> typeSpecifier = parseTypeSpecifier();
+		String name = accept(ID);
+		accept(SEMICOLON);
+
+		return new RecordElementDeclaration(location, isVariable, typeSpecifier, name);
 	}
 	
 	private IteratorDeclaration parseIteratorDeclaration() {
@@ -288,12 +345,36 @@ public final class Parser {
 
 		return new VariableDeclaration(location, typeSpecifier, name);
 	}
-	
+
+	/**
+	 * Task 1.6: Parses a return statement.
+	 * Grammar rule:
+	 * ’return’ expr ’;’
+	 *
+	 * @author adham-elaraby
+	 */
 	private ReturnStatement parseReturn() {
-		// TODO implement method (task 1.6)
-		throw new UnsupportedOperationException();
+		SourceLocation location = currentToken.sourceLocation;
+
+		// we look for the 'return' keyword.
+		accept(RETURN);
+
+		// we parse the expression that follows the 'return' keyword.
+		Expression expr = parseExpr();
+
+		// we look for the semicolon that ends the return statement.
+		accept(SEMICOLON);
+
+		return new ReturnStatement(location, expr);
 	}
-	
+
+	/**
+	 * Task 1.6: Parses an assignment or a function call.
+	 * Grammar rule:
+	 * ID ( assign | call) ’;’
+	 *
+	 * @author adham-elaraby
+	 */
 	private Statement parseAssignOrCall() {
 		SourceLocation location = currentToken.sourceLocation;
 
@@ -304,10 +385,10 @@ public final class Parser {
 			s = parseAssign(name, location);
 		}
 		else {
-			// TODO extend method (task 1.6)
-			throw new UnsupportedOperationException();
+			// if the current token is a left parenthesis, it means we have a function call.
+			// .. so we need to parse the function call, and get the statement object.
+			s = new CallStatement(location, parseCall(name, location));
 		}
-
 
 		accept(SEMICOLON);
 
@@ -371,10 +452,35 @@ public final class Parser {
 
 		return new VariableAssignment(location, lhs, expr);
 	}
-	
+
+	/**
+	 * Task 1.6: Parses a function call.
+	 * Grammar rule:
+	 * ’(’ ( expr ( ’,’ expr )* )? ’)’
+	 *
+	 * @param name name of the function to call
+	 * @param location The source location of the assignment in the code for error reporting.
+	 * @return a `CallExpression` object representing the parsed function call.
+	 *
+	 * @author adham-elaraby
+	 */
 	private CallExpression parseCall(String name, SourceLocation location) {
-		// TODO implement method (task 1.6)
-		throw new UnsupportedOperationException();
+		// TODO: test for correctness @adham-elaraby
+		// we look for the opening parenthesis of the function call.
+		accept(LPAREN);
+
+		// and we parse all the parameters within the parentheses, if any, and store them in a list.
+		List<Expression> actualParameters = new ArrayList<>();
+		if (currentToken.type != RPAREN) {
+			actualParameters.add(parseExpr());
+			while (currentToken.type != RPAREN) {
+				accept(COMMA);
+				actualParameters.add(parseExpr());
+			}
+		}
+		accept(RPAREN);
+
+		return new CallExpression(location, name, actualParameters);
 	}
 	
 	private ForLoop parseFor() {
@@ -833,13 +939,28 @@ public final class Parser {
 		
 		return x;
 	}
-	
+
+	/**
+	 * Task 1.7:
+	 * Grammar rule:
+	 * atom ( ’@’ ID )?
+	 *
+	 * @return an expression
+	 *
+	 * @auther adham-elaraby
+	 */
 	private Expression parseRecordElementSelect() {
 		SourceLocation location = currentToken.sourceLocation;
 		
 		Expression x = parseAtom();
 
-		// TODO extend method (task 1.7)
+		if(currentToken.type == AT) {
+			acceptIt();
+			String name = accept(ID);
+			// RecordElementSelect takes in the following parameters:
+			// sourceLocation, record (i.e. the atom), name (i.e. the ID)
+			return new RecordElementSelect(location, x, name);
+		}
 
 		return x;
 	}
@@ -877,7 +998,11 @@ public final class Parser {
 			if(currentToken.type != LPAREN) {
 				return new IdentifierReference(location, name);
 			}
-			// TODO extend method (task 1.6)
+			else {
+				// Task 1.6: function call. @author adham-elaraby
+				// if the current token is a left parenthesis, it means we have a function call, so we should call the method we implemented previously
+				return parseCall(name, location);
+			}
 		}
 
 		if(currentToken.type == LPAREN) {
@@ -887,15 +1012,31 @@ public final class Parser {
 			return x;
 		}
 
-		// TODO extend method (task 1.7)
-		
+		// Task 1.7: record element select @author adham-elaraby
+		// handle the case where the current token is an '@' symbol, which means we have a record element select.
+		// (’@’ ID)?
+		if(currentToken.type == AT) {
+			acceptIt();
+			String name = accept(ID);
+			// we return a new record node with the above.
+			return new RecordInit(location, name, parseInitializerList());
+		}
+
 		if(currentToken.type == LBRACKET) {
 			return new StructureInit(location, parseInitializerList());
 		}
 		
 		throw new SyntaxError(currentToken, INTLIT, FLOATLIT, BOOLLIT, STRINGLIT, ID, LPAREN, LBRACKET, AT);
 	}
-	
+
+	/**
+	 * Grammar rule:
+	 * ’[’ expr ( ’,’ expr )* ’]’
+	 *
+	 * @return a list of expressions
+	 *
+	 * @author eicb-team
+	 */
 	private List<Expression> parseInitializerList() {
 		List<Expression> elements = new ArrayList<>();
 		
