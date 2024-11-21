@@ -135,7 +135,7 @@ public final class Parser {
 	 * Grammar rule:
 	 * ’record’ ID ’{’ recordElemDecl+ ’}’
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, onlyvalli (col)
 	 */
 	private RecordTypeDeclaration parseRecordTypeDeclaration() throws SyntaxError {
 		SourceLocation location = currentToken.sourceLocation;
@@ -169,7 +169,7 @@ public final class Parser {
 	 * Grammar rule:
 	 * ( ’var’ | ’val’ ) type ID ’;’
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, onlyvalli (col)
 	 */
 
 	private RecordElementDeclaration parseRecordElementDeclaration() {
@@ -315,7 +315,7 @@ public final class Parser {
 	 * Example: `val int x = 42;`
 	 * @return A `ValueDefinition` object representing the parsed value definition.
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, onlyvalli (col)
 	 */
 	private ValueDefinition parseValueDef() {
 		SourceLocation location = currentToken.sourceLocation;
@@ -337,7 +337,7 @@ public final class Parser {
 	 *
 	 * @return A `VariableDeclaration` object representing the parsed variable declaration.
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, onlyvalli (col)
 	 */
 	private VariableDeclaration parseVarDecl() {
 		SourceLocation location = currentToken.sourceLocation;
@@ -356,7 +356,7 @@ public final class Parser {
 	 * Grammar rule:
 	 * ’return’ expr ’;’
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, sebherz (col)
 	 */
 	private ReturnStatement parseReturn() {
 		SourceLocation location = currentToken.sourceLocation;
@@ -378,7 +378,7 @@ public final class Parser {
 	 * Grammar rule:
 	 * ID ( assign | call) ’;’
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, sebherz (col)
 	 */
 	private Statement parseAssignOrCall() {
 		SourceLocation location = currentToken.sourceLocation;
@@ -410,7 +410,7 @@ public final class Parser {
 	 * @param location The source location of the assignment in the code for error reporting.
 	 * @return A `VariableAssignment` object representing the parsed assignment.
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, onlyvalli (col)
 	 */
 	private VariableAssignment parseAssign(String name, SourceLocation location) {
 		LeftHandIdentifier lhs;
@@ -467,7 +467,7 @@ public final class Parser {
 	 * @param location The source location of the assignment in the code for error reporting.
 	 * @return a `CallExpression` object representing the parsed function call.
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, sebherz, onlyvalli (col)
 	 */
 	private CallExpression parseCall(String name, SourceLocation location) {
 		// TODO: test for correctness @adham-elaraby
@@ -525,7 +525,7 @@ public final class Parser {
 	 *
 	 * @return An `IfStatement` object.
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, onlyvalli (col)
 	 */
 	private IfStatement parseIf() {
 		SourceLocation location = currentToken.sourceLocation;
@@ -610,7 +610,7 @@ public final class Parser {
 	 * Grammar rule:
 	 * or (’?’ or ’:’ or)?
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, sebherz, onlyvalli (col)
 	 */
 	private Expression parseSelect() {
 		SourceLocation location = currentToken.sourceLocation;
@@ -661,7 +661,7 @@ public final class Parser {
 	 * Task 1.2
 	 * Grammar: ’!’ ? compare
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, onlyvalli (col)
 	 */
 	private Expression parseNot() {
 
@@ -979,7 +979,7 @@ public final class Parser {
 	 *
 	 * an atom here refers to the most basic unit of an expression that cannot be broken down further. It includes literals (like integers, floats, booleans, and strings), identifiers, parenthesized expressions, and initializer lists.
 	 *
-	 * @author adham-elaraby, ...onlyvalli ??
+	 * @author adham-elaraby, ...onlyvalli, sebherz (col)
 	 */
 	private Expression parseAtom() {
 		SourceLocation location = currentToken.sourceLocation;
@@ -1003,7 +1003,7 @@ public final class Parser {
 				return new IdentifierReference(location, name);
 			}
 			else {
-				// Task 1.6: function call. @author adham-elaraby
+				// Task 1.6: function call.
 				// if the current token is a left parenthesis, it means we have a function call, so we should call the method we implemented previously
 				return parseCall(name, location);
 			}
@@ -1016,7 +1016,7 @@ public final class Parser {
 			return x;
 		}
 
-		// Task 1.7: record element select @author adham-elaraby
+		// Task 1.7: record element select
 		// handle the case where the current token is an '@' symbol, which means we have a record element select.
 		// (’@’ ID)?
 		if(currentToken.type == AT) {
@@ -1066,7 +1066,7 @@ public final class Parser {
 	/**
 	 * Task 1.4: takes a boolean literal and returns a boolean value
 	 *
-	 * @author adham-elaraby
+	 * @author adham-elaraby, onlyvalli, sebherz (col)
 	 */
 	private boolean parseBoolLit() {
 		// we are using the parseBoolLit basically to convert the string to a bool, see the commented example below
