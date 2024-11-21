@@ -137,7 +137,7 @@ public final class Parser {
 	 *
 	 * @author adham-elaraby
 	 */
-	private RecordTypeDeclaration parseRecordTypeDeclaration() {
+	private RecordTypeDeclaration parseRecordTypeDeclaration() throws SyntaxError {
 		SourceLocation location = currentToken.sourceLocation;
 
 		accept(RECORD);
@@ -145,6 +145,11 @@ public final class Parser {
 		accept(LBRACE);
 
 		List<RecordElementDeclaration> recordElementDeclarations = new ArrayList<>();
+
+		// Ensure at least one RecordElementDeclaration is parsed before entering the loop.
+		if (currentToken.type == RBRACE) {
+			throw new SyntaxError(currentToken, VAR, VAL);
+		}
 
 		// we do this here to ensure that at least one RecordElementDeclaration is parsed before entering the loop.
 		// This is necessary because the grammar rule for a record type declaration requires at least one recordElemDecl.
@@ -806,7 +811,6 @@ public final class Parser {
 
 		acceptIt();
 		return new UnaryMinus(location, parseExponentiation());
-//		return parseExponentiation(); // this was the original return statement before implementing the unary minus operator.
 	}
 
 	/**
