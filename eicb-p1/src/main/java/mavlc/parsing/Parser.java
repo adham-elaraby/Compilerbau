@@ -479,6 +479,12 @@ public final class Parser {
 		if (currentToken.type != RPAREN) {
 			actualParameters.add(parseExpr());
 			while (currentToken.type != RPAREN) {
+				// TEST
+				// case found through private testing, if the current token is a semicolon, it means that the function call is missing a closing parenthesis.
+				// without this check we would complain that we are expecting a comma and not a RPAREN.
+				if (currentToken.type == SEMICOLON) {
+					throw new SyntaxError(currentToken, RPAREN);
+				}
 				accept(COMMA);
 				actualParameters.add(parseExpr());
 			}
