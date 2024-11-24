@@ -22,7 +22,7 @@ function void main(){
 }
 
 function int fac(int n){
-    return (n > 1) ? n * fac(n-1) : -1;
+    return (n > 1) ? n * fac(n-1) : 1;
 }
 ```
 
@@ -51,4 +51,5 @@ This command will create a file named `factorial_example.png` containing the vis
 ## Output
 
 The resulting AST image is shown below:
-![AST of Factorial Example](https://github.com/user-attachments/assets/129fdea9-a5a6-4e81-baf0-924e2510fc74)
+
+![AST of Factorial Example](https://github.com/user-attachments/assets/4cc50fbd-e1d7-48ab-b028-1aacc2e5748c)
