@@ -30,11 +30,13 @@ import java.util.List;
 import static mavlc.parsing.Token.TokenType.*;
 import static mavlc.syntax.expression.Compare.Comparison.*;
 
-/* TODO enter group information
+/*
  *
- * EiCB group number: ...
+ * EiCB group number: 28
  * Names and matriculation numbers of all group members:
- * ...
+ * Adham Elaraby, 2315395
+ * Valentina Karapetyan, 2910363
+ * Sebastian Kai An-Herz, 2695044
  */
 
 /**
@@ -107,6 +109,16 @@ public final class Parser {
 		if(currentToken.type != RPAREN) {
 			parameters.add(parseFormalParameter());
 			while(currentToken.type != RPAREN) {
+				// @author adham-elaraby TODO: talk to the team
+				// The current implementation is wrong, as given a case like this:
+				// function int foo(int a, int b, int c{ ... }
+				// the parser will throw a SyntaxError because it expects a comma after the last parameter.
+				// instead of actually complaining about the missing closing parenthesis.
+				// since this is the official implementation, by the eicb team, we have not touched it and have followed the same logic in the parseCall() method.
+				// although we believe that the correct behavior should be to complain about the missing closing parenthesis.
+//				if (currentToken.type == LBRACE) {
+//					throw new SyntaxError(currentToken, RPAREN);
+//				}
 				accept(COMMA);
 				parameters.add(parseFormalParameter());
 			}
@@ -479,12 +491,21 @@ public final class Parser {
 		if (currentToken.type != RPAREN) {
 			actualParameters.add(parseExpr());
 			while (currentToken.type != RPAREN) {
-				// TEST
-				// case found through private testing, if the current token is a semicolon, it means that the function call is missing a closing parenthesis.
+				// @author adham-elaraby TODO: talk to the team
+				// The current implementation is wrong, as given a case like this:
+				// function void main() {println("Hello, World!";}
+
+				// the parser will throw a SyntaxError because it expects a comma after the last parameter in println().
+				// instead of actually complaining about the missing closing parenthesis.
+				// since this is the same logic as in parseFunction(), i.e. the official implementation, by the eicb team, we have not touched it and have followed the same logic here in the parseCall() method.
+				// although we believe that the correct behavior should be to complain about the missing closing parenthesis.
+
+				// TEST: tested in our private repo through task_priv_2 and for parseFunction() in task_priv_6
+				// error case found through private testing, if the current token is a semicolon, it means that the function call is missing a closing parenthesis.
 				// without this check we would complain that we are expecting a comma and not a RPAREN.
-				if (currentToken.type == SEMICOLON) {
-					throw new SyntaxError(currentToken, RPAREN);
-				}
+//				if (currentToken.type == SEMICOLON) {
+//					throw new SyntaxError(currentToken, RPAREN);
+//				}
 				accept(COMMA);
 				actualParameters.add(parseExpr());
 			}
