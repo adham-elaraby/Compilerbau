@@ -1,0 +1,4 @@
+record MyRecord {
+	var int x;
+	val int y
+}

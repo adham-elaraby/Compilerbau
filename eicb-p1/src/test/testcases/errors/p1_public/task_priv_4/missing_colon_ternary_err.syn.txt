@@ -1,0 +1,3 @@
+
+Syntax error in line 2, column 18:
+> Got token <intlit '0'> but expected colon.
