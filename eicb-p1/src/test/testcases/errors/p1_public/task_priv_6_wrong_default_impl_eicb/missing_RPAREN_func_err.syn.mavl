@@ -1,0 +1,5 @@
+function int increment(int i, int j{
+    i = (true ? 1 : 0);
+    j = (true ? 1 : 0);
+    return i;
+}
