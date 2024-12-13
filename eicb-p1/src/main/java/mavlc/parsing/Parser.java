@@ -442,6 +442,11 @@ public final class Parser {
 					// matrix[0][0] = 0
 					acceptIt();
 
+					// @author adham-elaraby: Note to future: writing parseExpr()
+					// here would have made the code more readable, as parseExpr() litterally
+					// just directly calls parseSelect() and returns the result.
+					// so just to note, this could have been better written as parseExpr() instead of parseSelect().
+
 					lhs = new MatrixLhsIdentifier(location, name, x, parseSelect());
 					accept(RBRACKET);
 				} else {
