@@ -24,7 +24,12 @@ import mavlc.syntax.statement.Declaration;
  * A table for identifiers used inside a function.
  */
 public class IdentificationTable {
-	
+
+	// The current scope in which identifiers are declared (task 2.1)
+	// we use a stack of scopes to represent the scoping of identifiers
+	// @author adham-elaraby
+	private Scope currentScope = null;
+
 	/**
 	 * Declares the given identifier in the current scope.
 	 *
@@ -32,8 +37,15 @@ public class IdentificationTable {
 	 * @param declaration the reference to the identifier's declaration site
 	 */
 	public void addIdentifier(String name, Declaration declaration) {
-		// TODO implement (task 2.1)
-		throw new UnsupportedOperationException();
+		// Task 2.1: @author adham-elaraby
+		// Ensure there is an open scope before adding the identifier
+		if (currentScope!=null){
+			currentScope.addIdentifier(name, declaration);
+		}
+		// One idea is to use InternalCompilerError to signal an internal error in the compiler implementation.
+		// but this adds an import which I think is not allowed
+		// TODO: remove or change this error
+		else throw new IllegalStateException("no open scope");
 	}
 	
 	/**
@@ -43,23 +55,36 @@ public class IdentificationTable {
 	 * @return the identifier's innermost declaration site
 	 */
 	public Declaration getDeclaration(String name) {
-		// TODO implement (task 2.1)
-		throw new UnsupportedOperationException();
+		// Task 2.1: @author adham-elaraby
+		// Ensure there is an open scope before looking up the identifier
+		if (currentScope!=null) {
+			return currentScope.getDeclaration(name);
+		}
+
+		// TODO: remove or change this error
+		else throw new IllegalStateException("no open scope");
 	}
 	
 	/**
 	 * Opens a new scope.
 	 */
 	public void openNewScope() {
-		// TODO implement (task 2.1)
-		throw new UnsupportedOperationException();
+		// Task 2.1: @author adham-elaraby
+		// Create a new scope and set it as the current scope, with the current scope as its parent
+		currentScope=new Scope(currentScope);
 	}
 	
 	/**
 	 * Closes the current scope.
 	 */
 	public void closeCurrentScope() {
-		// TODO implement (task 2.1)
-		throw new UnsupportedOperationException();
+		// Task 2.1: @author adham-elaraby
+		// Ensure there is an open scope before closing it
+		if (currentScope!=null){
+			// Move to the parent scope
+			currentScope=currentScope.parentScope;
+		}
+		// TODO: remove or change this error
+		else throw new IllegalStateException("No scope to close");
 	}
 }

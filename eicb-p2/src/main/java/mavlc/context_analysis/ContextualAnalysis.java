@@ -176,14 +176,39 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	@Override
 	public Type visitRecordTypeDeclaration(RecordTypeDeclaration recordTypeDeclaration, Void __) {
 		Set<String> elementNames = new HashSet<>();
-		// TODO implement (task 2.2)
-		throw new UnsupportedOperationException();
+
+		// Task 2.2: @author adham-elaraby
+		// Iterate over each element declaration in the record type
+		for (RecordElementDeclaration elementDeclaration : recordTypeDeclaration.elements){
+
+			// Visit the element declaration
+			elementDeclaration.accept(this);
+
+			// Check for duplicate element names
+			if (!elementNames.add(elementDeclaration.name)) {
+				throw new RecordElementError(recordTypeDeclaration, recordTypeDeclaration.name, elementDeclaration.name);
+			}
+
+			// Ensure the element type is a valid member type
+			if (!elementDeclaration.getType().isMemberType()){
+				throw new RecordElementError(recordTypeDeclaration, recordTypeDeclaration.name, elementDeclaration.name);
+			}
+		}
+
+		// Return a new RecordType with the name and declaration of the record type
+		return new RecordType(recordTypeDeclaration.name, recordTypeDeclaration);
 	}
 	
 	@Override
 	public Type visitRecordElementDeclaration(RecordElementDeclaration recordElementDeclaration, Void __) {
-		// TODO implement (task 2.2)
-		throw new UnsupportedOperationException();
+		// Task 2.2: @author adham-elaraby
+
+		// Visit the type specifier of the record element declaration
+		Type type = recordElementDeclaration.typeSpecifier.accept(this);
+
+		// Set the type of the record element declaration
+		recordElementDeclaration.setType(type);
+		return type;
 	}
 	
 	@Override
@@ -204,32 +229,158 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	
 	@Override
 	public Type visitVariableAssignment(VariableAssignment variableAssignment, Void __) {
-		// TODO implement (task 2.4)
-		throw new UnsupportedOperationException();
+		// Task 2.4: @author adham-elaraby
+
+		// Evaluate the types of the variable and value expressions, so we can compare them
+		Type typeOfValue = variableAssignment.value.accept(this);
+		Type typeOfVariable = variableAssignment.identifier.accept(this);
+		// we then make sure that they are the same
+		checkType(variableAssignment, typeOfVariable, typeOfValue);
+
+		// Return null as the type, because variable assignments do not have a type
+		return null;
 	}
 	
 	@Override
 	public Type visitLeftHandIdentifier(LeftHandIdentifier leftHandIdentifier, Void __) {
-		// TODO implement (task 2.4)
-		throw new UnsupportedOperationException();
+		// Task 2.4: @author adham-elaraby
+
+		// get the declaration linked to the identifier from the table
+		Declaration declaration = table.getDeclaration(leftHandIdentifier.name);
+
+		// we make sure that the declaration is a variable, as we cannot assign to constants
+		if (!declaration.isVariable()){
+			throw new ConstantAssignmentError(leftHandIdentifier, declaration);
+		}
+
+		// since the declaration is a variable, we set it to the identifier, and return the type of the declaration
+		leftHandIdentifier.setDeclaration(declaration);
+		return declaration.getType();
+
 	}
 	
 	@Override
 	public Type visitMatrixLhsIdentifier(MatrixLhsIdentifier matrixLhsIdentifier, Void __) {
-		// TODO implement (task 2.4)
-		throw new UnsupportedOperationException();
+		// Task 2.4: @author adham-elaraby
+
+		// Evaluate and check the type of the column, and row index expression.
+		// This ensures that the index is an integer, which is necessary for matrix indexing.
+		Type xType = matrixLhsIdentifier.colIndexExpression.accept(this);
+		Type yType = matrixLhsIdentifier.rowIndexExpression.accept(this);
+		checkType(matrixLhsIdentifier, xType, IntType.instance);
+		checkType (matrixLhsIdentifier, yType, IntType.instance);
+
+		// get the declaration linked to the identifier from the table
+		// this step is necessary to get the details of the variable, such as its type and whether it is a constant or variable.
+		Declaration declaration = table.getDeclaration(matrixLhsIdentifier.name);
+
+		// we make sure that the declaration is a variable, as we cannot assign to constants
+		// to prevent illegal assignments that could lead to runtime errors or unexpected behavior.
+		if(!declaration.isVariable()) {
+			throw new ConstantAssignmentError(matrixLhsIdentifier, declaration);
+		}
+
+		// links the identifier to its declaration, allowing further operations
+//		matrixLhsIdentifier.setDeclaration(declaration);
+
+		// Ensure that the type of the declaration is a MatrixType.
+		// This check is important because the operations we are performing are specific to matrices.
+		// If the type is not a MatrixType, it indicates a misuse of the identifier, and we throw an error.
+		if (!(declaration.getType() instanceof MatrixType)){
+			throw new InapplicableOperationError(matrixLhsIdentifier, declaration.getType(), MatrixType.class);
+		}
+
+		// TODO: do we need this?
+		// we retrieve the number of columns and rows in the matrix from the declaration
+		int declaredX = ((MatrixType) declaration.getType()).cols;
+		int declaredY = ((MatrixType) declaration.getType()).rows;
+
+		// we then evaluate rows and cols expressions to get the actual indices to
+		// ensure that the indices are within the bounds of the matrix dimensions.
+		// prevents out-of-bounds errors
+		int x = evalConstExpr(matrixLhsIdentifier.colIndexExpression);
+		int y = evalConstExpr(matrixLhsIdentifier.rowIndexExpression);
+
+		if (x < 0 || x >= declaredX)
+			throw new StructureDimensionError(matrixLhsIdentifier, x, declaredX);
+		if (y < 0 || y >= declaredY)
+			throw new StructureDimensionError(matrixLhsIdentifier, y, declaredY);
+
+
+		// link the identifier to its declaration
+		matrixLhsIdentifier.setDeclaration(declaration);
+		return ((MatrixType) declaration.getType()).elementType;
 	}
 	
 	@Override
 	public Type visitVectorLhsIdentifier(VectorLhsIdentifier vectorLhsIdentifier, Void __) {
-		// TODO implement (task 2.4)
-		throw new UnsupportedOperationException();
+		// Task 2.4: @author adham-elaraby
+		// eg : a[12] = 2 // b[1] = 2.5
+
+		// TODO: do we need this index check? I think its necessary
+		// ensure that the index is an integer, which is necessary for vector indexing
+		Type index = vectorLhsIdentifier.indexExpression.accept(this);
+		checkType(vectorLhsIdentifier, index, IntType.instance);
+
+		Declaration declaration = table.getDeclaration(vectorLhsIdentifier.name);
+
+		if (!declaration.isVariable()) {
+			throw new ConstantAssignmentError(vectorLhsIdentifier, declaration);
+		}
+		if (!(declaration.getType() instanceof VectorType)) {
+			throw new InapplicableOperationError(vectorLhsIdentifier, declaration.getType(), VectorType.class);
+		}
+
+		// TODO: do we need this index check? tbh I don't think so
+		// Retrieve the dimension of the vector from the declaration
+		// to check if the index is within bounds
+		int declaredIndex = ((VectorType) declaration.getType()).dimension;
+		int passedIndex = evalConstExpr(vectorLhsIdentifier.indexExpression);
+
+		if (passedIndex < 0){
+			throw new StructureDimensionError(vectorLhsIdentifier, passedIndex, 0);
+		}
+		if (passedIndex >= declaredIndex) {
+			throw new StructureDimensionError(vectorLhsIdentifier, passedIndex, declaredIndex);
+		}
+
+		vectorLhsIdentifier.setDeclaration(declaration);
+		return ((VectorType) declaration.getType()).elementType;
 	}
 	
 	@Override
 	public Type visitRecordLhsIdentifier(RecordLhsIdentifier recordLhsIdentifier, Void __) {
-		// TODO implement (task 2.4)
-		throw new UnsupportedOperationException();
+		// Task 2.4: @author adham-elaraby
+		// eg: x@r = 4 // x@r = 5.2
+
+		Declaration declaration = table.getDeclaration(recordLhsIdentifier.name);
+		if (!declaration.isVariable()){
+			throw new ConstantAssignmentError(recordLhsIdentifier, declaration);
+		}
+
+		if (!(declaration.getType() instanceof RecordType)){
+			throw new InapplicableOperationError(recordLhsIdentifier, declaration.getType(), RecordType.class);
+		}
+
+		// Retrieve the element declaration associated with the record element name.
+		// This step is necessary to get the details of the element within the record,
+		// such as its type and whether it is a constant or variable.
+		RecordElementDeclaration recordElement =
+				((RecordType) declaration.getType())
+						.typeDeclaration
+						.getElement(recordLhsIdentifier.elementName);
+
+		// make sure that the record element exists within the record type
+		if (recordElement==null){
+			throw new RecordElementError(recordLhsIdentifier, ((RecordType) declaration.getType()).typeDeclaration.name, recordLhsIdentifier.elementName);
+		}
+		// check that the record element is a variable, as we cannot assign to constants
+		if (!recordElement.isVariable()){
+			throw new ConstantAssignmentError(recordLhsIdentifier, recordElement);
+		}
+
+		recordLhsIdentifier.setDeclaration(declaration);
+		return recordElement.getType();
 	}
 	
 	@Override
@@ -318,8 +469,9 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	
 	@Override
 	public Type visitCallStatement(CallStatement callStatement, Void __) {
-		// TODO implement (task 2.6)
-		throw new UnsupportedOperationException();
+		// Task 2.6: adham-elaraby
+		callStatement.callExpression.accept(this);
+		return null;
 	}
 	
 	@Override
@@ -329,8 +481,21 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	
 	@Override
 	public Type visitCompoundStatement(CompoundStatement compoundStatement, Void __) {
-		// TODO implement (task 2.1)
-		throw new UnsupportedOperationException();
+		// Task 2.1: @author adham-elaraby
+
+		// Open a new scope for the compound statement
+		table.openNewScope();
+
+		// Visit each statement within the compound statement
+		for(Statement stmt : compoundStatement.statements) {
+			stmt.accept(this);
+		}
+
+		// Close the scope after processing all statements
+		table.closeCurrentScope();
+
+		// Return null as the type, because compound statements do not have a type
+		return null;
 	}
 	
 	@Override
@@ -552,8 +717,17 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	
 	@Override
 	public Type visitMatrixRows(MatrixRows rows, Void __) {
-		// TODO implement (task 2.4)
-		throw new UnsupportedOperationException();
+		// Task 2.5: adham-elaraby
+		// we evaluate the type of the operand to ensure it is a matrix
+		Type operandType = rows.operand.accept(this);
+
+		if(!(operandType instanceof MatrixType)) {
+			throw new InapplicableOperationError(rows, operandType, MatrixType.class);
+		}
+
+		// we set the type of the rows expression to an integer, as the number of rows is an integer
+		rows.setType(IntType.instance);
+		return IntType.instance;
 	}
 	
 	@Override
@@ -576,8 +750,19 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	
 	@Override
 	public Type visitUnaryMinus(UnaryMinus unaryMinus, Void __) {
-		// TODO implement (task 2.5)
-		throw new UnsupportedOperationException();
+		// check the type of the operand to make sure it is a some numeric type (int or float)
+		// to ensure it can be negated
+		Type operandType= unaryMinus.operand.accept(this);
+		if (!operandType.isNumericType()){
+			throw new InapplicableOperationError(unaryMinus, operandType, IntType.class, FloatType.class);
+		}
+		// TODO: check which type to return
+//		unaryMinus.setType(IntType.instance);
+
+		// Set the type of the unary minus expression to the type of the operand
+		unaryMinus.setType(operandType);
+//		return IntType.instance;
+		return operandType;
 	}
 	
 	@Override
@@ -590,8 +775,46 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	
 	@Override
 	public Type visitCallExpression(CallExpression callExpression, Void __) {
-		// TODO implement (task 2.6)
-		throw new UnsupportedOperationException();
+		// Task 2.6: adham-elaraby
+
+		// Retrieve the function declaration for the function being called
+		Function calledFunction = env.getFunctionDeclaration(callExpression.functionName);
+
+		// Get the list of formal parameters and actual parameters
+		List<FormalParameter> formalParameters = calledFunction.parameters;
+		List<Expression> actualParameters = callExpression.actualParameters;
+		int formalCount = calledFunction.parameters.size();
+		int actualCount = callExpression.actualParameters.size();
+
+		// Check if the number of actual parameters matches the number of formal parameters
+		if (formalCount != actualCount){
+			throw new ArgumentCountError(callExpression, calledFunction, formalCount, actualCount);
+		}
+
+		// For each actual parameter, check if its type matches the corresponding formal parameter's type
+		for (int i = 0; i < actualCount; i++){
+			FormalParameter formalParameter = formalParameters.get(i);
+			Expression parameter = actualParameters.get(i);
+
+			// If the formal parameter's type is not set, set it by visiting the type specifier
+			if (!formalParameter.isTypeSet()){
+				formalParameter.setType(formalParameter.typeSpecifier.accept(this));
+			}
+
+			// Check if the type of the actual parameter matches the type of the formal parameter
+			checkType(callExpression, formalParameter.getType(), parameter.getType());
+		}
+
+		// If the return type of the called function is not set, set it by visiting the return type specifier
+		if (!calledFunction.isReturnTypeSet()){
+			calledFunction.setReturnType(calledFunction.returnTypeSpecifier.accept(this));
+		}
+
+		// Set the callee definition and type of the call expression
+		callExpression.setCalleeDefinition(calledFunction);
+		callExpression.setType(calledFunction.getReturnType());
+
+		return callExpression.getType();
 	}
 	
 	@Override
@@ -715,8 +938,31 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 			return resultType;
 		} else {
 			// Vector init
-			// TODO extend method (task 2.5)
-			throw new UnsupportedOperationException();
+			// Task 2.5: @adham-elaraby
+
+			if(!firstElem.isNumericType()) {
+				throw new InapplicableOperationError(structureInit, firstElem, IntType.class, FloatType.class);
+			}
+
+			// Cast the type of the first element to NumericType.
+			// This is safe because we have already checked that the element is numeric.
+			// the cast to NumericType is necessary because firstElem is of type Type,
+			// and we need to access methods specific to NumericType
+			NumericType elementType = (NumericType) firstElem;
+
+			// variable to keep track of the size of the vector
+			int size = 0;
+			for(Expression element : structureInit.elements) {
+				// we evaluate the type of each element in the vector, making sure they are all numeric, i.e. matching the first element
+				Type currentElementType = element.accept(this);
+				checkType(structureInit, elementType, currentElementType);
+				size++;
+			}
+
+			// we create a new VectorType with the determined element type and size from above.
+			VectorType resultType = new VectorType(elementType, size);
+			structureInit.setType(resultType);
+			return resultType;
 		}
 	}
 	
@@ -742,8 +988,8 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	
 	@Override
 	public Type visitBoolValue(BoolValue boolValue, Void __) {
-		// TODO implement (task 2.5)
-		throw new UnsupportedOperationException();
+		// Task 2.5: @adham-elaraby
+		return BoolType.instance;
 	}
 	
 	@Override
@@ -766,7 +1012,18 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	
 	@Override
 	public Type visitSelectExpression(SelectExpression exp, Void __) {
-		// TODO implement (task 2.5)
-		throw new UnsupportedOperationException();
+		// Task 2.5: @adham-elaraby
+		Type conditionType = exp.condition.accept(this);
+		// make sure the condition is a boolean
+		checkType(exp, conditionType, BoolType.instance);
+
+		// get the types of the true and false cases and make sure they are the same
+		Type trueCaseType = exp.trueCase.accept(this);
+		Type falseCaseType = exp.falseCase.accept(this);
+		checkType(exp, trueCaseType, falseCaseType);
+
+		// we set the type (both true and false cases have the same type so its not so important which one we use)
+		exp.setType(trueCaseType);
+		return trueCaseType;
 	}
 }
