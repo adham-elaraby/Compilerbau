@@ -265,10 +265,10 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 
 		// Evaluate and check the type of the column, and row index expression.
 		// This ensures that the index is an integer, which is necessary for matrix indexing.
-		Type xType = matrixLhsIdentifier.colIndexExpression.accept(this);
-		Type yType = matrixLhsIdentifier.rowIndexExpression.accept(this);
-		checkType(matrixLhsIdentifier, xType, IntType.instance);
-		checkType (matrixLhsIdentifier, yType, IntType.instance);
+		Type colType = matrixLhsIdentifier.colIndexExpression.accept(this);
+		Type rowType = matrixLhsIdentifier.rowIndexExpression.accept(this);
+		checkType(matrixLhsIdentifier, colType, IntType.instance);
+		checkType (matrixLhsIdentifier, rowType, IntType.instance);
 
 		// get the declaration linked to the identifier from the table
 		// this step is necessary to get the details of the variable, such as its type and whether it is a constant or variable.
@@ -280,9 +280,6 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 			throw new ConstantAssignmentError(matrixLhsIdentifier, declaration);
 		}
 
-		// links the identifier to its declaration, allowing further operations
-//		matrixLhsIdentifier.setDeclaration(declaration);
-
 		// Ensure that the type of the declaration is a MatrixType.
 		// This check is important because the operations we are performing are specific to matrices.
 		// If the type is not a MatrixType, it indicates a misuse of the identifier, and we throw an error.
@@ -290,21 +287,21 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 			throw new InapplicableOperationError(matrixLhsIdentifier, declaration.getType(), MatrixType.class);
 		}
 
-		// TODO: do we need this?
+		// TODO: do we need to actually check the dimensions of the matrix? or should we remove this?
 		// we retrieve the number of columns and rows in the matrix from the declaration
-		int declaredX = ((MatrixType) declaration.getType()).cols;
-		int declaredY = ((MatrixType) declaration.getType()).rows;
+		int declaredCols = ((MatrixType) declaration.getType()).cols;
+		int declaredRows = ((MatrixType) declaration.getType()).rows;
 
 		// we then evaluate rows and cols expressions to get the actual indices to
 		// ensure that the indices are within the bounds of the matrix dimensions.
 		// prevents out-of-bounds errors
-		int x = evalConstExpr(matrixLhsIdentifier.colIndexExpression);
-		int y = evalConstExpr(matrixLhsIdentifier.rowIndexExpression);
+		int actualCols = evalConstExpr(matrixLhsIdentifier.colIndexExpression);
+		int actualRows = evalConstExpr(matrixLhsIdentifier.rowIndexExpression);
 
-		if (x < 0 || x >= declaredX)
-			throw new StructureDimensionError(matrixLhsIdentifier, x, declaredX);
-		if (y < 0 || y >= declaredY)
-			throw new StructureDimensionError(matrixLhsIdentifier, y, declaredY);
+		if (actualCols < 0 || actualCols >= declaredCols)
+			throw new StructureDimensionError(matrixLhsIdentifier, actualCols, declaredCols);
+		if (actualRows < 0 || actualRows >= declaredRows)
+			throw new StructureDimensionError(matrixLhsIdentifier, actualRows, declaredRows);
 
 
 		// link the identifier to its declaration
@@ -317,7 +314,6 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 		// Task 2.4: @author adham-elaraby
 		// eg : a[12] = 2 // b[1] = 2.5
 
-		// TODO: do we need this index check? I think its necessary
 		// ensure that the index is an integer, which is necessary for vector indexing
 		Type index = vectorLhsIdentifier.indexExpression.accept(this);
 		checkType(vectorLhsIdentifier, index, IntType.instance);
@@ -331,7 +327,7 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 			throw new InapplicableOperationError(vectorLhsIdentifier, declaration.getType(), VectorType.class);
 		}
 
-		// TODO: do we need this index check? tbh I don't think so
+		// TODO: do we need this vector index check? tbh I don't think so
 		// Retrieve the dimension of the vector from the declaration
 		// to check if the index is within bounds
 		int declaredIndex = ((VectorType) declaration.getType()).dimension;
@@ -756,12 +752,9 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 		if (!operandType.isNumericType()){
 			throw new InapplicableOperationError(unaryMinus, operandType, IntType.class, FloatType.class);
 		}
-		// TODO: check which type to return
-//		unaryMinus.setType(IntType.instance);
 
 		// Set the type of the unary minus expression to the type of the operand
 		unaryMinus.setType(operandType);
-//		return IntType.instance;
 		return operandType;
 	}
 	
