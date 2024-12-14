@@ -796,6 +796,12 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 			FormalParameter formalParameter = formalParameters.get(i);
 			Expression parameter = actualParameters.get(i);
 
+			// There was an error message indicating that the type of an expression has not been set,
+			// which is causing a NullPointerException when trying to retrieve the type.
+			// This issue occured here.
+			// To resolve this, we needed to ensure that the type of each actual parameter is set
+			// before checking their types against the formal parameters.
+			// hence:
 			// Visit the actual parameter to set its type
 			Type actualType = parameter.accept(this);
 
