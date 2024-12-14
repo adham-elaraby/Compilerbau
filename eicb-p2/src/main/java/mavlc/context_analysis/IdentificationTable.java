@@ -71,7 +71,13 @@ public class IdentificationTable {
 	public void openNewScope() {
 		// Task 2.1: @author adham-elaraby
 		// Create a new scope and set it as the current scope, with the current scope as its parent
-		currentScope=new Scope(currentScope);
+
+		// check added to add logic to handle the case of the first scope
+		if (currentScope==null){
+			currentScope=new Scope(null);
+		} else {
+			currentScope = new Scope(currentScope);
+		}
 	}
 	
 	/**
