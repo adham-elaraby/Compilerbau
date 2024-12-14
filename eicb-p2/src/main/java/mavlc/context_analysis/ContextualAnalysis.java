@@ -787,26 +787,29 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 		int actualCount = callExpression.actualParameters.size();
 
 		// Check if the number of actual parameters matches the number of formal parameters
-		if (formalCount != actualCount){
+		if (formalCount != actualCount) {
 			throw new ArgumentCountError(callExpression, calledFunction, formalCount, actualCount);
 		}
 
 		// For each actual parameter, check if its type matches the corresponding formal parameter's type
-		for (int i = 0; i < actualCount; i++){
+		for (int i = 0; i < actualCount; i++) {
 			FormalParameter formalParameter = formalParameters.get(i);
 			Expression parameter = actualParameters.get(i);
 
+			// Visit the actual parameter to set its type
+			Type actualType = parameter.accept(this);
+
 			// If the formal parameter's type is not set, set it by visiting the type specifier
-			if (!formalParameter.isTypeSet()){
+			if (!formalParameter.isTypeSet()) {
 				formalParameter.setType(formalParameter.typeSpecifier.accept(this));
 			}
 
 			// Check if the type of the actual parameter matches the type of the formal parameter
-			checkType(callExpression, formalParameter.getType(), parameter.getType());
+			checkType(callExpression, formalParameter.getType(), actualType);
 		}
 
 		// If the return type of the called function is not set, set it by visiting the return type specifier
-		if (!calledFunction.isReturnTypeSet()){
+		if (!calledFunction.isReturnTypeSet()) {
 			calledFunction.setReturnType(calledFunction.returnTypeSpecifier.accept(this));
 		}
 
