@@ -57,3 +57,46 @@ The resulting AST image is shown below:
 | eicb1 | ![AST from eicb1](https://github.com/user-attachments/assets/4cc50fbd-e1d7-48ab-b028-1aacc2e5748c)   |
 | eicb2 | ![AST from eicb2](https://github.com/user-attachments/assets/94386268-948d-48cc-8f79-3a4c376ff9a2)   |
 
+
+# Extended testing
+
+The following code was parsed and analyzed without any errors.
+```mavlc
+// Record type must be declared globally
+record TestRecord {
+    var int a;
+    var vector<int>[2] v;
+}
+
+function void main() {
+    // Integer assignment
+    var int intVar;
+    intVar = 10;
+
+    // Float assignment
+    var float floatVar;
+    floatVar = 3.14;
+
+    // Boolean assignment
+    var bool boolVar;
+    boolVar = true;
+
+    // Vector assignment
+    var vector<int>[3] intVector;
+    intVector = [1, 2, 3];
+    intVector[1] = 42;
+
+    // Matrix assignment
+    var matrix<float>[2][2] floatMatrix;
+    floatMatrix = [[1.1, 2.2], [3.3, 4.4]];
+    floatMatrix[0][1] = 5.5;
+
+    // Record usage
+    var TestRecord rec;
+    rec = @TestRecord[99, [7, 8]];
+    rec@a = 123;
+
+    // Reassign the vector field
+    rec@v = [42, rec@v[1]]; // Create a new vector with the updated value
+}
+```
