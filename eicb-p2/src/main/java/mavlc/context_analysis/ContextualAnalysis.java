@@ -197,6 +197,13 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 
 		// Return a new RecordType with the name and declaration of the record type
 		return new RecordType(recordTypeDeclaration.name, recordTypeDeclaration);
+
+		// TODO: check lecture slides, and see what thy meant by adding it to the table and retuning null
+		 // causes errors in the tests although it should be correct according to Foliensatz 03 Seite 67
+		// fix @author sebherz
+		// Add the record type declaration to the symbol table
+		// Return null as required
+		// return null;
 	}
 	
 	@Override
@@ -229,11 +236,24 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	
 	@Override
 	public Type visitVariableAssignment(VariableAssignment variableAssignment, Void __) {
-		// Task 2.4: @author adham-elaraby
+		// Task 2.4: @author adham-elaraby, sebherz
 
-		// Evaluate the types of the variable and value expressions, so we can compare them
-		Type typeOfValue = variableAssignment.value.accept(this);
+		// Ensure the declaration of the identifier is set
 		Type typeOfVariable = variableAssignment.identifier.accept(this);
+
+		String name = variableAssignment.identifier.name;
+		Declaration declaration = table.getDeclaration(name);
+		if(declaration==null){
+			throw new UndeclaredReferenceError(name);
+		}
+
+		// we make sure that the declaration is a variable, as we cannot assign to constants
+		if (!(variableAssignment.identifier.getDeclaration().isVariable())) {
+			throw new ConstantAssignmentError(variableAssignment, variableAssignment.identifier.getDeclaration());
+		}
+
+		// Evaluate the type of value expression, so we can compare it with the type of the variable
+		Type typeOfValue = variableAssignment.value.accept(this);
 		// we then make sure that they are the same
 		checkType(variableAssignment, typeOfVariable, typeOfValue);
 
@@ -466,7 +486,12 @@ public class ContextualAnalysis extends AstNodeBaseVisitor<Type, Void> {
 	@Override
 	public Type visitCallStatement(CallStatement callStatement, Void __) {
 		// Task 2.6: adham-elaraby
-		callStatement.callExpression.accept(this);
+
+		Type returnType = callStatement.callExpression.accept(this);
+		if (!(returnType instanceof VoidType)){
+			throw new TypeError(callStatement, returnType, VoidType.instance);
+		}
+
 		return null;
 	}
 	
