@@ -115,38 +115,164 @@ public class CodeGenerator extends AstNodeBaseVisitor<Instruction, Void> {
 	
 	@Override
 	public Instruction visitVariableAssignment(VariableAssignment variableAssignment, Void __) {
-		// TODO implement (task 3.3)
-		throw new UnsupportedOperationException();
+		// Task 3.3
+		// First evaluate RHS (push value)
+		visit(variableAssignment.value);
+		
+		// Then get LHS address
+		visit(variableAssignment.identifier);
+		
+		// Store value at address (value and address are now on stack)
+		// Expects stack: [value, address]
+		// 1. Pops both value and address
+		// 2. Stores value at address
+		// 3. Size parameter tells how many words to store
+		assembler.storeToStackAddress(variableAssignment.value.getType().wordSize);
+		
+		return null;
 	}
 	
 	@Override
 	public Instruction visitLeftHandIdentifier(LeftHandIdentifier leftHandIdentifier, Void __) {
-		// TODO implement (task 3.3)
-		throw new UnsupportedOperationException();
+		// Task 3.3 / TODO: impl priv tests
+		// Get base address relative to LB
+		int offset = leftHandIdentifier.getDeclaration().getLocalBaseOffset();
+
+		// Push address onto stack
+		assembler.loadAddress(Register.LB, offset);
+		return null;
 	}
 	
 	@Override
 	public Instruction visitMatrixLhsIdentifier(MatrixLhsIdentifier matrixLhsIdentifier, Void __) {
-		// TODO implement (task 3.3)
-		throw new UnsupportedOperationException();
+		// Task 3.3
+		// Get matrix type (to access matrix dimensions (rows x cols))
+		final MatrixType type = (MatrixType) matrixLhsIdentifier.getDeclaration().getType();
+
+		// Get base address
+		// Push base address of matrix onto stack using
+		visitLeftHandIdentifier(matrixLhsIdentifier, __);
+		
+		// Handle row index (ensuring 0 <= row_index < rows):
+		// Stack after: [base_addr, row_index]
+		visit(matrixLhsIdentifier.rowIndexExpression);
+		assembler.emitBoundsCheck(0, type.rows);
+		
+		// Calculate row offset (offset = row * cols + col)
+		// and push number of columns
+
+		// Stack after: [base_addr, row_index, cols]
+		assembler.loadIntegerValue(type.cols);
+		
+		// Multiply: row_index * cols
+		// Stack after: [base_addr, row_offset]
+		assembler.emitIntegerMultiplication();
+
+		// Add to base address
+		// Stack after: [base_addr + row_offset]
+		assembler.emitIntegerAddition();
+		
+		// Handle column index:
+		// Push and check column index
+		// Stack after: [partial_addr, col_index]
+		visit(matrixLhsIdentifier.colIndexExpression);
+		assembler.emitBoundsCheck(0, type.cols);
+		
+		// Add column offset to get final address
+		// Stack after: [final_addr]
+		assembler.emitIntegerAddition();
+		
+		return null;
 	}
 	
 	@Override
 	public Instruction visitVectorLhsIdentifier(VectorLhsIdentifier vectorLhsIdentifier, Void __) {
-		// TODO implement (task 3.3)
-		throw new UnsupportedOperationException();
+		// Task 3.3
+		// Get vector type
+		final VectorType type = (VectorType) vectorLhsIdentifier.getDeclaration().getType();
+
+		// Get base address by reusing leftHandIdentifier logic (pushes address onto stack)
+		visitLeftHandIdentifier(vectorLhsIdentifier, __);
+		
+		// Evaluate index (should be an integer)
+		visit(vectorLhsIdentifier.indexExpression);
+
+		// Check bound (basically: 0 <= index < dimension)
+		assembler.emitBoundsCheck(0, type.dimension);
+		
+		// Add index to base
+		assembler.emitIntegerAddition();
+		
+		return null;
 	}
 	
 	@Override
 	public Instruction visitRecordLhsIdentifier(RecordLhsIdentifier recordLhsIdentifier, Void __) {
-		// TODO implement (task 3.3)
-		throw new UnsupportedOperationException();
+		// Task 3.3
+		// Get record type info and declaration
+		// Base offset where record starts in memory
+		RecordType type = (RecordType) recordLhsIdentifier.getDeclaration().getType();
+		int baseOffset = recordLhsIdentifier.getDeclaration().getLocalBaseOffset();
+		
+		// Calculate offset to target field by summing sizes of preceding fields:
+			// Find target field's offset by walking through record definition
+			// Example: For record {int a, float b, int c}, accessing 'c'
+			// needs to skip over size(a) + size(b) bytes
+		int fieldOffset = 0;
+		for (RecordElementDeclaration element : type.typeDeclaration.elements) {
+			// Stop when we find target field
+			if (element.name.equals(recordLhsIdentifier.elementName)) {
+				break;
+			}
+			// Add size of current field
+			fieldOffset += element.getType().wordSize;
+    }
+    
+    // Push final address (base + field offset) to give exact memory location of target field
+    assembler.loadAddress(Register.LB, baseOffset + fieldOffset);
+    
+    return null;
 	}
 	
 	@Override
 	public Instruction visitForLoop(ForLoop forLoop, Void __) {
-		// TODO implement (task 3.5)
-		throw new UnsupportedOperationException();
+		// Task 3.5
+		// Get variable offsets
+		int initVarOffset = forLoop.getInitVarDeclaration().getLocalBaseOffset();
+		int incrVarOffset = forLoop.getIncrVarDeclaration().getLocalBaseOffset();
+		
+		// Initialize loop variable (Stack after: [] --> [initValue] --> [])
+		visit(forLoop.initExpression);
+		assembler.storeLocalValue(forLoop.initExpression.getType().wordSize, initVarOffset);
+		
+		// Jump to condition check (backpatch later)
+		// (we skip over body first time - then backpatch this jump
+		// to the condition check once we know where it is..)
+		Instruction jumpToCondition = assembler.emitJump(-1);
+		
+		// Mark loop body start
+		int loopBodyStart = assembler.getNextInstructionAddress();
+		
+		// Execute loop body (preserve stack state)
+		// we save current stack pointer to restore after body
+		// (because it might declare local variables we need to clean up)
+		int nextOffset = assembler.getNextOffset();
+		visit(forLoop.body);
+		assembler.resetNextOffset(nextOffset);
+		
+		// Handle increment and store back
+		visit(forLoop.incrExpression);
+		assembler.storeLocalValue(forLoop.incrExpression.getType().wordSize, incrVarOffset);
+		
+		// Condition check location (remember where condition starts to backpatch the initial jump)
+		int loopCondition = assembler.getNextInstructionAddress();
+		assembler.backPatchJump(jumpToCondition, loopCondition);
+		
+		// Check condition and loop (and jump back to body start if condition is true)
+		visit(forLoop.loopCondition);
+		assembler.emitConditionalJump(true, loopBodyStart);
+		
+		return null;
 	}
 	
 	@Override
@@ -303,26 +429,100 @@ public class CodeGenerator extends AstNodeBaseVisitor<Instruction, Void> {
 	
 	@Override
 	public Instruction visitCompoundStatement(CompoundStatement compoundStatement, Void __) {
-		// TODO implement (task 3.2)
-		throw new UnsupportedOperationException();
+		// Task 3.2
+		// Save current offset
+		int oldOffset = assembler.getNextOffset();
+		
+		// Visit all statements in block (can be replaced with a for loop, see visitCallExpression)
+		compoundStatement.statements.forEach(this::visit);
+		
+		// Clear local variables and restore offset
+		assembler.resetNextOffset(oldOffset);
+		
+		return null;
 	}
 	
 	@Override
 	public Instruction visitSwitchStatement(SwitchStatement switchCaseStatement, Void __) {
-		// TODO implement (task 3.6)
-		throw new UnsupportedOperationException();
+		// Task 3.6
+		// Save initial stack position
+		int localSize = assembler.getNextOffset();
+		
+		// List for end-jumps after each case
+		List<Instruction> jumps = new ArrayList<>();
+		
+		// Evaluate and store condition
+		visit(switchCaseStatement.condition);
+		// Reserve stack space for condition
+		assembler.setNextOffset(localSize + switchCaseStatement.condition.getType().wordSize);
+		
+		// Handle each case
+		for(Case caseNode : switchCaseStatement.cases) {
+			// Load condition value from storage
+			assembler.loadIntegerValue(localSize);
+			assembler.loadFromStackAddress(1);
+			// Store jump for backpatching
+			jumps.add(visit(caseNode));
+		}
+		
+		// Handle default case if present
+		if(!switchCaseStatement.defaults.isEmpty()) {
+			visit(switchCaseStatement.defaults.get(0));
+		}
+		
+		// Patch jumps to end
+		int switchEnd = assembler.getNextInstructionAddress();
+		for(Instruction jump : jumps) {
+			assembler.backPatchJump(jump, switchEnd);
+		}
+		
+		// Clean up condition from stack
+		assembler.resetNextOffset(localSize);
+		return null;
 	}
 	
 	@Override
 	public Instruction visitCase(Case namedCase, Void __) {
-		// TODO implement (task 3.6)
-		throw new UnsupportedOperationException();
+		// Task 3.6
+		// Stack: [..., switchValue]
+		
+		// Push case value and compare (Stack after: [..., switchValue, caseValue])
+		assembler.loadIntegerValue(namedCase.getCondition());
+		
+		// Stack after: [..., compareResult]
+		assembler.emitIntegerComparison(Comparison.EQUAL);
+		
+		// Jump to next case if no match
+		Instruction jumpNextCase = assembler.emitConditionalJump(false, -1);
+		
+		// Execute case body
+		int nextOffset = assembler.getNextOffset();
+		visit(namedCase.body);
+		assembler.resetNextOffset(nextOffset);
+		
+		// Jump to switch end after case body
+		Instruction jumpSwitchEnd = assembler.emitJump(0);
+		
+		// Mark next case start for backpatching
+		int startNextCase = assembler.getNextInstructionAddress();
+		assembler.backPatchJump(jumpNextCase, startNextCase);
+		
+		return jumpSwitchEnd;
 	}
 	
 	@Override
 	public Instruction visitDefault(Default defaultCase, Void __) {
-		// TODO implement (task 3.6)
-		throw new UnsupportedOperationException();
+		// Task 3.6
+		// Save stack state before executing body
+		int nextOffset = assembler.getNextOffset();
+		
+		// Execute default case body
+		visit(defaultCase.body);
+		
+		// Restore stack - clear any local variables
+		assembler.resetNextOffset(nextOffset);
+		
+		return null;
 	}
 	
 	@Override
@@ -602,8 +802,12 @@ public class CodeGenerator extends AstNodeBaseVisitor<Instruction, Void> {
 	
 	@Override
 	public Instruction visitAnd(And and, Void __) {
-		// TODO implement (task 3.1)
-		throw new UnsupportedOperationException();
+		// Task 3.1
+		// explanation: op && op, we need to evaluate both operands and then apply the logical AND operation
+		visit(and.leftOperand);
+		visit(and.rightOperand);
+		assembler.emitLogicalAnd();
+		return null;
 	}
 	
 	@Override
@@ -650,8 +854,13 @@ public class CodeGenerator extends AstNodeBaseVisitor<Instruction, Void> {
 	
 	@Override
 	public Instruction visitUnaryMinus(UnaryMinus unaryMinus, Void __) {
-		// TODO implement (task 3.1)
-		throw new UnsupportedOperationException();
+		// Task 3.1
+		visit(unaryMinus.operand);
+		if(unaryMinus.getType().equals(IntType.instance))
+			assembler.emitIntegerNegation();
+		else
+			assembler.emitFloatNegation();
+		return null;
 	}
 	
 	@Override
@@ -663,8 +872,16 @@ public class CodeGenerator extends AstNodeBaseVisitor<Instruction, Void> {
 	
 	@Override
 	public Instruction visitCallExpression(CallExpression callExpression, Void __) {
-		// TODO implement (task 3.1)
-		throw new UnsupportedOperationException();
+		// Task 3.1
+		callExpression.actualParameters.forEach(this :: visit);
+
+		// for loop impl. 
+		// for (Expression parameter : callExpression.actualParameters) {
+		// 	visit(parameter);
+		// }
+
+		assembler.emitFunctionCall(callExpression.getCalleeDefinition());
+		return null;
 	}
 	
 	@Override
@@ -809,8 +1026,44 @@ public class CodeGenerator extends AstNodeBaseVisitor<Instruction, Void> {
 	
 	@Override
 	public Instruction visitSubVector(SubVector subVector, Void __) {
-		// TODO implement (task 3.7)
-		throw new UnsupportedOperationException();
+		// Task 3.7
+		// Get sizes
+		int startOffset = subVector.getStartOffset();
+		int resSize = subVector.getType().wordSize;
+		int vecSize = subVector.structExpression.getType().wordSize;
+		
+		// Get source vector on stack (Stack after: [vec])
+		visit(subVector.structExpression);
+		
+		// Get vector base address
+		// Stack after: [vec, &vec]
+		assembler.loadAddress(Register.ST, -vecSize);
+		
+		// Calculate target index
+		// Stack after: [vec, &vec, base]
+		visit(subVector.baseIndexExpression);
+		
+		// Add start offset
+		// Stack after: [vec, &vec, base+start]
+		assembler.loadIntegerValue(startOffset);
+		assembler.emitIntegerAddition();
+		
+		// Check bounds
+		assembler.emitBoundsCheck(0, vecSize - resSize + 1);
+		
+		// Calculate final address
+		// Stack after: [vec, &vec[base+start]]
+		assembler.emitIntegerAddition();
+		
+		// Load subvector elements
+		// Stack after: [vec, result]
+		assembler.loadFromStackAddress(resSize);
+		
+		// Clean up source vector
+		assembler.emitPop(resSize, vecSize);
+		// Stack: [result]
+
+		return null;
 	}
 	
 	@Override
@@ -827,8 +1080,9 @@ public class CodeGenerator extends AstNodeBaseVisitor<Instruction, Void> {
 	
 	@Override
 	public Instruction visitBoolValue(BoolValue boolValue, Void __) {
-		// TODO implement (task 3.1)
-		throw new UnsupportedOperationException();
+		// Task 3.1
+		assembler.loadBooleanValue(boolValue.value);
+		return null;
 	}
 	
 	@Override
@@ -855,7 +1109,33 @@ public class CodeGenerator extends AstNodeBaseVisitor<Instruction, Void> {
 	
 	@Override
 	public Instruction visitSelectExpression(SelectExpression exp, Void __) {
-		// TODO implement (task 3.4)
-		throw new UnsupportedOperationException();
+		// Task 3.4
+		// First evaluate condition and get boolean result
+		visit(exp.condition);
+		// Stack before: [] --> Stack now: [condition]
+		
+		// Create jump to false case if condition is false (0)
+		Instruction jumpToFalse = assembler.emitConditionalJump(false, -1);
+		// Stack now: []
+		
+		// Execute true case --> Stack thereafter: [true_result]
+		visit(exp.trueCase); 
+		
+		// Jump over false case
+		Instruction jumpToEnd = assembler.emitJump(-1);
+		
+		// False case starts here - patch jumpToFalse
+		int falseStart = assembler.getNextInstructionAddress();
+		assembler.backPatchJump(jumpToFalse, falseStart);
+		
+		// Execute false case --> Stack thereafter: [false_result]
+		visit(exp.falseCase);
+		
+		// Join point - patch jumpToEnd
+		int end = assembler.getNextInstructionAddress();
+		assembler.backPatchJump(jumpToEnd, end);
+		// Final stack: [result] (either true or false case result)
+		
+		return null;
 	}
 }
